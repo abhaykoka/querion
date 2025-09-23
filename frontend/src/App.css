@@ -1,0 +1,357 @@
+:root{
+  --bg-app: #f5fffe;
+  --panel-bg: #ffffff;
+  --muted: #6b7280;
+  --accent-1: #4f46e5; /* primary */
+  --accent-2: #3b82f6; /* secondary */
+  --brand-gold: #f0ce0e;
+  --ui-border: #e6eef6;
+  --bubble-radius: 14px;
+  --max-width: 1100px;
+  --gap: 10px;
+}
+
+/* Global reset */
+html, body, #root{
+  height:100%;
+}
+body{
+  margin:0;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: var(--bg-app);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  color: #0f172a;
+}
+
+/* Page wrapper: provides the outer-area visual polish around the chat panel */
+.app-root{
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:48px 20px;
+  background-image: radial-gradient(circle at 10% 10%, rgba(99,102,241,0.04), transparent 6%),
+                    radial-gradient(circle at 90% 90%, rgba(59,130,246,0.03), transparent 6%);
+  transition:background .32s ease;
+  position: relative; /* allow pseudo-elements for decorations */
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* Free outer look: subtle light texture */
+.app-root.is-free{
+  background-color: var(--bg-app);
+}
+
+/* Pro outer look: deep canvas with subtle stars/texture */
+.app-root.is-pro{
+  /* Layered backgrounds: base deep gradient + soft moving sheen */
+  background:
+    radial-gradient(1200px 400px at 10% 10%, rgba(124,58,237,0.06), transparent 8%),
+    radial-gradient(900px 300px at 90% 80%, rgba(14,165,233,0.04), transparent 6%),
+    linear-gradient(180deg,#071023 0%, #071428 40%, #0b1020 100%);
+  background-size: 160% 160%, 160% 160%, 100% 100%;
+  background-position: 0% 0%, 100% 100%, 50% 50%;
+  animation: proGradientShift 18s ease-in-out infinite;
+}
+
+/* subtle floating particle overlay for premium texture */
+.app-root.is-pro::after{
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px);
+  background-size: 18px 18px;
+  opacity: 0.6;
+  mix-blend-mode: screen;
+  transform: translateY(0);
+  filter: blur(0.6px);
+  animation: proParticles 14s linear infinite;
+}
+
+@keyframes proGradientShift{
+  0%{background-position:0% 0%,100% 100%,50% 50%}
+  50%{background-position:20% 10%,80% 90%,50% 55%}
+  100%{background-position:0% 0%,100% 100%,50% 50%}
+}
+
+@keyframes proParticles{
+  0%{transform:translateY(0) scale(1)}
+  50%{transform:translateY(-6px) scale(1.02)}
+ 100%{transform:translateY(0) scale(1)}
+}
+
+/* Decorative accent behind the chat container to lift the panel visually */
+.app-root .chat-container{
+  margin-top:12px;
+  padding:0;
+  border-radius:14px;
+  overflow:hidden;
+  width:100%;
+  /* ensure the chat-container fits within the viewport. Use the --app-inner-height variable (set in JS)
+    for mobile browsers where 100vh can be unreliable. Fallback to 100vh when the variable isn't set. */
+  max-height: calc(var(--app-inner-height, 100vh) - 144px);
+  display:flex;
+  flex-direction:column;
+}
+
+/* Make chat-messages scroll inside the container rather than the whole page */
+.chat-container .chat-messages{overflow:auto}
+
+/* Version selector styling */
+.version-select-wrapper{
+  width:100%;
+  max-width:var(--max-width);
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  padding:6px 12px;
+  box-sizing:border-box;
+}
+.version-select-wrapper label{color:var(--muted);font-size:14px;margin-right:8px}
+.version-select-wrapper select{padding:6px 8px;border-radius:8px;border:1px solid var(--ui-border);background:var(--panel-bg)}
+
+/* Layout: sidebar + main panel */
+.app-inner{display:flex;gap:18px;width:100%;max-width:var(--max-width);}
+.sidebar{width:260px;background:linear-gradient(180deg,#fbfbff,#f7fbfd);border-radius:12px;padding:12px;border:1px solid #eef4fb;height:calc(var(--app-inner-height,100vh) - 220px);box-sizing:border-box;overflow:auto}
+.sidebar-header{display:flex;align-items:center;justify-content:center;padding:6px 4px}
+.new-chat-btn{width:100%;padding:10px;border-radius:8px;border:none;background:var(--accent-1);color:#fff;font-weight:700;cursor:pointer}
+.chat-list{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.chat-list-item{padding:10px;border-radius:8px;cursor:pointer;background:transparent;border:1px solid transparent}
+.chat-list-item.active{background:linear-gradient(90deg,rgba(79,70,229,0.08),rgba(59,130,246,0.06));border-color:rgba(79,70,229,0.06)}
+.chat-list-title{font-weight:600}
+.chat-list-meta{font-size:12px;color:var(--muted)}
+
+.main-panel{flex:1;min-width:0}
+
+@media (max-width:900px){
+  .app-inner{flex-direction:column}
+  .sidebar{width:100%;height:auto;order:2}
+  .main-panel{order:1}
+}
+
+/* App container */
+.chat-container{
+  display:flex;
+  flex-direction:column;
+  /* min-height:100vh; */
+  width:100%;
+  max-width:var(--max-width);
+  margin:0 auto;
+  background:var(--panel-bg);
+  border-left:1px solid var(--ui-border);
+  border-right:1px solid var(--ui-border);
+  box-shadow: 0 6px 24px rgba(16,24,40,0.04);
+}
+
+/* Header */
+.chat-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:16px 20px;
+  background: linear-gradient(90deg,var(--accent-1),var(--accent-2));
+  color: #fff;
+  font-weight:700;
+}
+
+.logo{
+  font-family: 'Poppins', 'Segoe UI', sans-serif;
+  font-weight:700;
+  font-size:1.5rem;
+  color:var(--brand-gold);
+  letter-spacing:0.2px;
+}
+
+.persona-select{
+  padding:8px 10px;
+  border-radius:8px;
+  border:none;
+  font-size:14px;
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+}
+
+/* Messages area */
+.chat-messages{
+  flex:1 1 auto;
+  padding:20px;
+  overflow:auto;
+  background: linear-gradient(180deg, #f8fbfd 0%, #f0f6fb 100%);
+  min-height: 300px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+/* Smooth scrollbar for desktop */
+.chat-messages::-webkit-scrollbar{width:10px;height:10px}
+.chat-messages::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.12);border-radius:8px}
+
+.chat-bubble{
+  display:block;
+  max-width:65%;
+  padding:12px 16px;
+  margin:4px 6px;
+  border-radius:var(--bubble-radius);
+  font-size:15px;
+  line-height:1.45;
+  word-break:break-word;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap; /* preserve user line breaks while still wrapping long words */
+}
+
+/* Code formatting inside messages */
+.chat-bubble code{
+  background: rgba(0,0,0,0.04);
+  padding:2px 6px;
+  border-radius:6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Courier New', monospace;
+  font-size:0.92em;
+}
+
+.chat-bubble pre{
+  background: rgba(0,0,0,0.04);
+  padding:10px;
+  border-radius:8px;
+  overflow:auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Courier New', monospace;
+  font-size:0.9em;
+}
+
+.chat-bubble.user{
+  background:var(--accent-1);
+  color:#fff;
+  align-self:flex-end;
+  border-bottom-right-radius:6px;
+  box-shadow: 0 6px 18px rgba(79,70,229,0.12);
+}
+
+.chat-bubble.bot{
+  background: #fff;
+  border:1px solid var(--ui-border);
+  color: #0f172a;
+  align-self:flex-start;
+  border-bottom-left-radius:6px;
+}
+
+/* Message wrapper with optional avatar */
+.message{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+}
+
+.message.user{justify-content:flex-end}
+.message.bot{justify-content:flex-start}
+
+.avatar{
+  width:36px;
+  height:36px;
+  border-radius:10px;
+  object-fit:cover;
+  flex:0 0 36px;
+  margin-top:6px;
+  box-shadow: 0 4px 12px rgba(16,24,40,0.06);
+}
+
+.brand-avatar{width:28px;height:28px;border-radius:6px;vertical-align:middle;margin-right:8px}
+
+/* Small metadata lines */
+.meta{
+  display:block;
+  font-size:12px;
+  color:var(--muted);
+  margin-top:6px;
+}
+
+/* Typing indicator */
+.typing-indicator{
+  font-size:13px;
+  color:var(--muted);
+  font-style:italic;
+  margin:8px 0;
+}
+
+/* Templates */
+.chat-templates{
+  display:flex;
+  gap:var(--gap);
+  padding:12px 16px;
+  border-top:1px solid var(--ui-border);
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  flex-wrap:wrap;
+}
+
+.template-btn{
+  padding:8px 12px;
+  font-size:13px;
+  border:1px solid #e6eef6;
+  border-radius:8px;
+  background:#fafafa;
+  cursor:pointer;
+  transition:transform .12s ease, box-shadow .12s ease, background .12s;
+}
+
+.template-btn:hover{background:#f3f4f6;transform:translateY(-2px);box-shadow:0 6px 14px rgba(16,24,40,0.06)}
+
+/* Input area */
+.chat-input{
+  display:flex;
+  gap:12px;
+  padding:16px;
+  border-top:1px solid var(--ui-border);
+  background:var(--panel-bg);
+}
+
+.chat-input input{
+  flex:1 1 auto;
+  padding:12px 14px;
+  border:1px solid #dbe7f6;
+  border-radius:10px;
+  font-size:14px;
+}
+
+.chat-input input:focus{outline:none;box-shadow:0 4px 18px rgba(59,130,246,0.12);border-color:var(--accent-2)}
+
+.chat-input button{
+  padding:12px 18px;
+  border:none;
+  border-radius:10px;
+  background:var(--accent-2);
+  color:#fff;
+  font-weight:700;
+  cursor:pointer;
+  transition:transform .12s ease, box-shadow .12s ease;
+}
+
+.chat-input button:hover{transform:translateY(-2px);box-shadow:0 8px 26px rgba(59,130,246,0.18)}
+
+/* Accessibility focus for interactive elements */
+.template-btn:focus, .chat-input button:focus, .persona-select:focus{
+  outline:3px solid rgba(59,130,246,0.26);
+  outline-offset:2px;
+  box-shadow:0 0 0 4px rgba(59,130,246,0.06);
+}
+
+/* Respect user preference for reduced motion */
+@media (prefers-reduced-motion: reduce){
+  .template-btn, .chat-input button{transition:none}
+  .template-btn:hover, .chat-input button:hover{transform:none;box-shadow:none}
+}
+
+/* Ensure minimum contrast for important UI elements on light backgrounds */
+@media (prefers-color-scheme: light){
+  .chat-input button{background:var(--accent-2);color:#fff}
+}
+
+/* Responsive tweaks */
+@media (max-width:700px){
+  .chat-container{border-left:none;border-right:none}
+  .chat-bubble{max-width:85%}
+  .logo{font-size:1.2rem}
+  .chat-header{padding:12px}
+  .chat-input{padding:12px}
+}

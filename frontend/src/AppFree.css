@@ -1,0 +1,13 @@
+
+/* Free tier overrides - lightweight and high-contrast */
+.chat-container.chat-free{background:var(--panel-bg)}
+
+.chat-bubble.user.chat-free{background:var(--accent-1);color:#fff;box-shadow:none}
+
+.chat-bubble.bot.chat-free{background:#f8fafc;color:#0f172a;border:1px solid var(--ui-border)}
+
+.logo.chat-free{color:#4a0a0adc}
+
+.chat-templates .template-btn{background:#ffffff;border:1px solid #e9f0ff}
+.chat-templates .template-btn:hover{background:#f3f6fb}
+
