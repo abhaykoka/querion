@@ -57,14 +57,7 @@ export default function ChatWindowPro(props) {
         <div className="logo chat-pro">
           <img src="/Querion%20Logo.png" alt="Querion" className="brand-avatar" /> Querion (Pro)
         </div>
-        <div className="controls">
-          <select className="persona-select" value={persona} onChange={e => setPersona(e.target.value)}>
-            {["Tutor","Dev","Friendly","Concise","Pro"].map(p => <option key={p}>{p}</option>)}
-          </select>
-          <select className="persona-select" value={model} onChange={e => setModel(e.target.value)}>
-            {["Chat","Image"].map(m => <option key={m}>{m}</option>)}
-          </select>
-        </div>
+        
       </div>
 
       <div className="chat-messages">

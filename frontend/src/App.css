@@ -118,6 +118,7 @@ body{
 .sidebar{width:260px;background:linear-gradient(180deg,#fbfbff,#f7fbfd);border-radius:12px;padding:12px;border:1px solid #eef4fb;height:calc(var(--app-inner-height,100vh) - 220px);box-sizing:border-box;overflow:auto}
 .sidebar-header{display:flex;align-items:center;justify-content:center;padding:6px 4px}
 .new-chat-btn{width:100%;padding:10px;border-radius:8px;border:none;background:var(--accent-1);color:#fff;font-weight:700;cursor:pointer}
+.logout-btn{padding: 6px 12px;border-radius: 8px;border: none;background: var(--accent-2);color: #fff;font-weight: 700;cursor: pointer;}
 .chat-list{margin-top:12px;display:flex;flex-direction:column;gap:8px}
 .chat-list-item{padding:10px;border-radius:8px;cursor:pointer;background:transparent;border:1px solid transparent}
 .chat-list-item.active{background:linear-gradient(90deg,rgba(79,70,229,0.08),rgba(59,130,246,0.06));border-color:rgba(79,70,229,0.06)}

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './Login.css';
 
 const Login = ({ onLogin }) => {
     const [username, setUsername] = useState('');
@@ -19,6 +20,7 @@ const Login = ({ onLogin }) => {
         if (response.ok) {
             if (isLogin) {
                 alert('Login successful');
+                localStorage.setItem('user_id', data.user_id);
                 onLogin(data.user_id);
             } else {
                 alert('Registration successful');
@@ -29,22 +31,25 @@ const Login = ({ onLogin }) => {
     };
 
     return (
-        <div>
-            <h2>{isLogin ? 'Login' : 'Register'}</h2>
-            <form onSubmit={handleSubmit}>
-                <div>
-                    <label>Username</label>
-                    <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} />
-                </div>
-                <div>
-                    <label>Password</label>
-                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-                </div>
-                <button type="submit">{isLogin ? 'Login' : 'Register'}</button>
-            </form>
-            <button onClick={() => setIsLogin(!isLogin)}>
-                {isLogin ? 'Need to register?' : 'Have an account?'}
-            </button>
+        <div className="login-container">
+            <div className="login-form">
+                <img src="/Querion%20Logo.png" alt="Querion" className="login-logo" />
+                <h2>{isLogin ? 'Login' : 'Register'}</h2>
+                <form onSubmit={handleSubmit}>
+                    <div className="form-group">
+                        <label>Username</label>
+                        <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} />
+                    </div>
+                    <div className="form-group">
+                        <label>Password</label>
+                        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                    </div>
+                    <button type="submit">{isLogin ? 'Login' : 'Register'}</button>
+                </form>
+                <button className="toggle-button" onClick={() => setIsLogin(!isLogin)}>
+                    {isLogin ? 'Need to register?' : 'Have an account?'}
+                </button>
+            </div>
         </div>
     );
 };

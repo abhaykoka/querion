@@ -14,12 +14,11 @@ export default function App() {
   // set a CSS variable with the inner height to handle mobile browser UI and ensure
   // the chat container fits without page scrolling
   useEffect(() => {
-    const setHeight = () => {
-      document.documentElement.style.setProperty('--app-inner-height', window.innerHeight + 'px');
-    };
-    setHeight();
-    window.addEventListener('resize', setHeight);
-    return () => window.removeEventListener('resize', setHeight);
+    const storedUserId = localStorage.getItem('user_id');
+    if (storedUserId) {
+      setIsLoggedIn(true);
+      setUserId(storedUserId);
+    }
   }, []);
 
   const chat = useChat();
@@ -27,6 +26,12 @@ export default function App() {
   const handleLogin = (id) => {
     setIsLoggedIn(true);
     setUserId(id);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('user_id');
+    setIsLoggedIn(false);
+    setUserId(null);
   };
 
   return (
@@ -44,6 +49,7 @@ export default function App() {
               <option>Free</option>
               <option>Pro</option>
             </select>
+            <button className="logout-btn" onClick={handleLogout}>Logout</button>
           </div>
 
           <div className="app-inner">

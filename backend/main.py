@@ -135,11 +135,14 @@ async def query_documents(query: Query, chroma_collection: Collection = Depends(
     if query.version == "Pro":
         model_name = "nvidia/llama3-chatqa-1.5-8b"
     else:
-        model_name = "NV-Embed-QA"
+        model_name = "nvidia/llama3-chatqa-1.5-70b"
 
     llm = ChatNVIDIA(model=model_name)
     
-    response = llm.invoke(f"Context: {context}\n\nQuestion: {query.query}")
+    response = llm.invoke(f""" You are a helpful assistant. Use the following context to answer the user's question.
+If the answer is not in the context, say you don't know.
+                          Context: {context}\n\nQuestion: {query.query} 
+""")
 
     #return {"response": response.content, "context": context}
     return {"response": response.content}
