@@ -25,7 +25,7 @@ export default function ChatWindowFree(props) {
     <div className="chat-container chat-free">
       <div className="chat-header chat-free">
         <div className="logo chat-free">
-          <img src="/Querion%20Logo.png" alt="Querion" className="brand-avatar" /> Querion (Free)
+          <img src="/querion free.ico" alt="Querion Free" className="brand-avatar" /> Querion (Free)
         </div>
         
       </div>
@@ -34,7 +34,7 @@ export default function ChatWindowFree(props) {
   {messages.map((msg, i) => (
           msg.sender === 'bot' ? (
             <div key={i} className={`message bot chat-free`}>
-              <img src="/Querion%20Logo.png" alt="Querion" className="avatar" />
+              <img src="/querion free.ico" alt="Querion Free" className="avatar" />
               <div className={`chat-bubble ${msg.sender} chat-free`}>
                 {msg.text}
               </div>

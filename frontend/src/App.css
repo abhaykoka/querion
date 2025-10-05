@@ -50,7 +50,7 @@ body{
   background:
     radial-gradient(1200px 400px at 10% 10%, rgba(124,58,237,0.06), transparent 8%),
     radial-gradient(900px 300px at 90% 80%, rgba(14,165,233,0.04), transparent 6%),
-    linear-gradient(180deg,#071023 0%, #071428 40%, #0b1020 100%);
+    linear-gradient(180deg,#7fafc2 0%, #677d9b 40%, #e9afaf 100%);
   background-size: 160% 160%, 160% 160%, 100% 100%;
   background-position: 0% 0%, 100% 100%, 50% 50%;
   animation: proGradientShift 18s ease-in-out infinite;
@@ -110,7 +110,7 @@ body{
   padding:6px 12px;
   box-sizing:border-box;
 }
-.version-select-wrapper label{color:var(--muted);font-size:14px;margin-right:8px}
+.version-select-wrapper label{color:black;font-size:14px;margin-right:8px}
 .version-select-wrapper select{padding:6px 8px;border-radius:8px;border:1px solid var(--ui-border);background:var(--panel-bg)}
 
 /* Layout: sidebar + main panel */
@@ -124,6 +124,57 @@ body{
 .chat-list-item.active{background:linear-gradient(90deg,rgba(79,70,229,0.08),rgba(59,130,246,0.06));border-color:rgba(79,70,229,0.06)}
 .chat-list-title{font-weight:600}
 .chat-list-meta{font-size:12px;color:var(--muted)}
+
+.app-root.is-pro .chat-list-title{font-style:italic}
+
+.chat-list-item{display:flex;align-items:center;justify-content:space-between}
+.chat-list-main{flex:1;min-width:0;cursor:pointer}
+.chat-list-actions{display:flex;gap:8px;margin-left:8px}
+.chat-list-actions button{background:transparent;border:none;cursor:pointer;padding:6px;border-radius:6px}
+.chat-list-actions button:hover{background:rgba(0,0,0,0.04)}
+
+/* File chooser base styles (neutral, visible on light backgrounds) */
+.file-group .file-button{
+  background: rgba(0,0,0,0.04);
+  color: #0f172a;
+  padding:8px 10px;
+  border-radius:8px;
+  cursor:pointer;
+  border:1px solid rgba(15,23,42,0.06);
+}
+.file-button{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  background: rgba(0,0,0,0.06);
+  color: #0f172a;
+  padding:8px 10px;
+  border-radius:8px;
+  cursor:pointer;
+  border:1px solid rgba(15,23,42,0.08);
+  text-decoration:none;
+}
+.file-button:hover{background:rgba(15,23,42,0.06)}
+.file-button:focus{outline:3px solid rgba(59,130,246,0.18);outline-offset:2px}
+.file-group .file-button:hover{background:rgba(15,23,42,0.06)}
+.file-group .file-name{
+  max-width:200px;
+  color:var(--muted);
+  font-size:13px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/* Ensure buttons are visible on Pro (dark) backgrounds */
+.app-root.is-pro .file-group .file-button{
+  background: rgba(80, 159, 31, 0.088);
+  color: #fff;
+  border:1px solid rgba(255,255,255,0.04);
+}
+.app-root.is-pro .file-group .file-button:hover{background: rgba(90, 150, 17, 0.09)}
+.app-root.is-pro .file-group .file-name{color:black}
 
 .main-panel{flex:1;min-width:0}
 
@@ -171,7 +222,7 @@ body{
   border-radius:8px;
   border:none;
   font-size:14px;
-  background: rgba(255,255,255,0.12);
+  background: rgba(118, 114, 168, 0.12);
   color: #fff;
 }
 
@@ -356,3 +407,35 @@ body{
   .chat-header{padding:12px}
   .chat-input{padding:12px}
 }
+
+/* Promo box shown to Free users */
+.pro-promo{
+  position:fixed;
+  left:20px;
+  bottom:24px;
+  max-width:320px;
+  background: linear-gradient(135deg, #fff7f0 0%, #fffaf4 100%);
+  color: #0f172a;
+  border: 1px solid rgba(34,197,94,0.08);
+  padding:10px 14px;
+  border-radius:12px;
+  box-shadow:0 6px 24px rgba(16,24,40,0.08);
+  font-size:13px;
+  line-height:1.3;
+  z-index:1200;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  transition: transform 200ms ease, opacity 200ms ease;
+}
+
+.pro-promo:hover{transform:translateY(-4px)}
+
+@media (max-width:600px){
+  .pro-promo{left:12px;right:12px;bottom:14px;max-width:none;font-size:12px}
+}
+
+
+.pro-promo a:hover{text-decoration:underline}
+
+.app-root.is-pro .pro-promo{display:none}
