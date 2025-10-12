@@ -1,0 +1,42 @@
+we are creaing a rag application where users can upload documents and ask questions, and get relavent answers from the uploaded documents.
+
+user login
+user can upload files
+
+
+frontend
+react. tailwindcss.
+
+backend
+fastapi
+python
+
+database
+postgresql
+chroma db
+auth
+
+
+
+
+for the llm part we are using nvidia llama3 model hosted on nvidia cloud.
+from openai import OpenAI
+
+client = OpenAI(
+  base_url = "https://integrate.api.nvidia.com/v1",
+  api_key = "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"
+)
+
+completion = client.chat.completions.create(
+  model="nvidia/llama3-chatqa-1.5-8b",
+  messages=[{"role":"user","content":""}],
+  temperature=0.2,
+  top_p=0.7,
+  max_tokens=1024,
+  stream=True
+)
+
+for chunk in completion:
+  if chunk.choices[0].delta.content is not None:
+    print(chunk.choices[0].delta.content, end="")
+

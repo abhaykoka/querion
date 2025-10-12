@@ -1,10 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Login.css';
 
 const Login = ({ onLogin }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [isLogin, setIsLogin] = useState(true);
+    const [rememberMe, setRememberMe] = useState(false);
+
+    useEffect(() => {
+        const storedUsername = localStorage.getItem('rememberedUsername');
+        if (storedUsername) {
+            setUsername(storedUsername);
+            setRememberMe(true);
+        }
+    }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -21,9 +30,16 @@ const Login = ({ onLogin }) => {
             if (isLogin) {
                 alert('Login successful');
                 localStorage.setItem('user_id', data.user_id);
+                if (rememberMe) {
+                    localStorage.setItem('rememberedUsername', username);
+                } else {
+                    localStorage.removeItem('rememberedUsername');
+                }
                 onLogin(data.user_id);
             } else {
                 alert('Registration successful');
+                setIsLogin(true);
+                setPassword('');
             }
         } else {
             alert(data.detail);
@@ -33,7 +49,7 @@ const Login = ({ onLogin }) => {
     return (
         <div className="login-container">
             <div className="login-form">
-                <img src="/Querion%20Logo.png" alt="Querion" className="login-logo" />
+                <img src="/querion free.ico" alt="Querion" className="login-logo" />
                 <h2>{isLogin ? 'Login' : 'Register'}</h2>
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
@@ -43,6 +59,10 @@ const Login = ({ onLogin }) => {
                     <div className="form-group">
                         <label>Password</label>
                         <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                    </div>
+                    <div className="form-group remember-me">
+                        <input type="checkbox" id="rememberMe" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
+                        <label htmlFor="rememberMe">Remember Me</label>
                     </div>
                     <button type="submit">{isLogin ? 'Login' : 'Register'}</button>
                 </form>

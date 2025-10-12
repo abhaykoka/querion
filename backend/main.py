@@ -4,6 +4,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from passlib.context import CryptContext
 from pydantic import BaseModel
+from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
 from chroma_connection import get_chroma_collection
 from chromadb.api.models.Collection import Collection
@@ -13,6 +14,9 @@ from pypdf import PdfReader
 import io
 import tiktoken
 from langchain_nvidia_ai_endpoints import ChatNVIDIA
+import os
+# from model_router import DEFAULT_MODEL_ID, select_pro_model 
+
 
 DATABASE_URL = "postgresql://postgres:User123$@localhost/chatapp"
 
@@ -41,6 +45,7 @@ class Query(BaseModel):
     query: str
     user_id: int
     version: str
+    model: Optional[str] = None
 
 Base.metadata.create_all(bind=engine)
 
@@ -129,23 +134,94 @@ async def query_documents(query: Query, chroma_collection: Collection = Depends(
     print(results)
     
     context = ""
+    for result in results['metadatas'][0]:
+        context += result['filename'] + "\n"
+
     for result in results['documents'][0]:
         context += result + "\n"
 
-    if query.version == "Pro":
-        model_name = "nvidia/llama3-chatqa-1.5-8b"
-    else:
-        model_name = "nvidia/llama3-chatqa-1.5-70b"
 
-    llm = ChatNVIDIA(model=model_name)
+    # If the frontend provided a model selection, prefer it. Otherwise pick defaults by version.
+    if query.model:
+        model_name = query.model
+    else:
+        if query.version == "Pro":
+            model_name = "nvidia/llama3-chatqa-1.5-70b"
+            # model_name = select_pro_model(query.query)
+        else:
+            model_name = "nvidia/llama3-chatqa-1.5-8b"
     
+    # model_name = select_pro_model(query.query)
+    
+    print(f"Using model: {model_name}")
+    print(f"Context for query: {context}")
+    try:
+        # Try to instantiate the NVIDIA chat client. Some clients require a base_url or
+        # other environment configuration (API key, tenant, etc.). If those values are
+        # missing or of the wrong type the pydantic model used by the client will raise
+        # a ValidationError complaining about `base_url` or similar fields.
+        llm = ChatNVIDIA(model=model_name)
+    except Exception as e:
+        # Provide a clearer error to the caller with troubleshooting hints.
+        hint = (
+            "Failed to initialize the NVIDIA chat client. This typically means the client "
+            "is missing configuration such as a string `base_url`, API key, or tenant. "
+            "Check your environment variables (for example `NVIDIA_API_KEY`, `NVIDIA_BASE_URL`, "
+            "`CHROMA_API_KEY`, or whichever variables your NVIDIA client expects) and ensure "
+            "they are set to string values. See the `langchain_nvidia_ai_endpoints` docs for exact names."
+        )
+        raise HTTPException(status_code=500, detail=f"NVIDIA client init error: {e}. {hint}")
+
     response = llm.invoke(f""" You are a helpful assistant. Use the following context to answer the user's question.
-If the answer is not in the context, say you don't know.
+If the answer is not in the context, say you don't know. 
+Context includes files with filenames the user has uploaded. usually .pdf, .docx etc. Answer about the files themseves too.
                           Context: {context}\n\nQuestion: {query.query} 
 """)
 
     #return {"response": response.content, "context": context}
     return {"response": response.content}
+
+
+@app.post("/logout/")
+def logout(user_id: int | None = None, purge: bool = False, chroma_collection: Collection = Depends(get_chroma_collection)):
+    """
+    Logout endpoint.
+
+    By default this endpoint does not remove user data. It simply acknowledges logout so the
+    frontend can clear local session state. To explicitly delete a user's uploaded vectors,
+    call this endpoint with the query parameter `purge=true` (and `user_id=<id>`).
+    """
+    if not purge:
+        # Do not clear server-side data by default. Return a friendly message.
+        return {"message": "Logged out. User data retained on server."}
+
+    # If purge is requested, user_id is required
+    if user_id is None:
+        raise HTTPException(status_code=400, detail="user_id is required when purge=true")
+
+    user_id_str = str(user_id)
+    try:
+        chroma_collection.delete(where={"user_id": user_id_str})
+    except Exception as primary_err:
+        try:
+            # Fallback: page through results and delete by ids in batches
+            while True:
+                results = chroma_collection.query(n_results=1000, where={"user_id": user_id_str})
+                ids_batch = []
+                if results and 'ids' in results and len(results['ids']) > 0:
+                    ids_batch = [i for i in results['ids'][0] if i]
+                if not ids_batch:
+                    break
+                chroma_collection.delete(ids=ids_batch)
+                if len(ids_batch) < 1000:
+                    break
+        except Exception as fallback_err:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to clear user data (primary error: {primary_err}; fallback error: {fallback_err})"
+            )
+
+    return {"message": "Logged out and user data cleared"}
 
 @app.get("/")
 def read_root():
