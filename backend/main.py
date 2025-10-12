@@ -134,8 +134,12 @@ async def query_documents(query: Query, chroma_collection: Collection = Depends(
     print(results)
     
     context = ""
+    for result in results['metadatas'][0]:
+        context += result['filename'] + "\n"
+
     for result in results['documents'][0]:
         context += result + "\n"
+
 
     # If the frontend provided a model selection, prefer it. Otherwise pick defaults by version.
     if query.model:
@@ -143,11 +147,14 @@ async def query_documents(query: Query, chroma_collection: Collection = Depends(
     else:
         if query.version == "Pro":
             model_name = "nvidia/llama3-chatqa-1.5-70b"
+            # model_name = select_pro_model(query.query)
         else:
             model_name = "nvidia/llama3-chatqa-1.5-8b"
-    #model_name = "nvidia/llama3-chatqa-1.5-70b"
+    
     # model_name = select_pro_model(query.query)
+    
     print(f"Using model: {model_name}")
+    print(f"Context for query: {context}")
     try:
         # Try to instantiate the NVIDIA chat client. Some clients require a base_url or
         # other environment configuration (API key, tenant, etc.). If those values are
@@ -166,7 +173,8 @@ async def query_documents(query: Query, chroma_collection: Collection = Depends(
         raise HTTPException(status_code=500, detail=f"NVIDIA client init error: {e}. {hint}")
 
     response = llm.invoke(f""" You are a helpful assistant. Use the following context to answer the user's question.
-If the answer is not in the context, say you don't know.
+If the answer is not in the context, say you don't know. 
+Context includes files with filenames the user has uploaded. usually .pdf, .docx etc. Answer about the files themseves too.
                           Context: {context}\n\nQuestion: {query.query} 
 """)
 

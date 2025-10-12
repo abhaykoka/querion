@@ -4,6 +4,7 @@ import "./AppPro.css";   // Pro-specific overrides
 
 export default function ChatWindowPro(props) {
   const { activeChat, input, setInput, persona, setPersona, model, setModel, sendMessage, userId } = props;
+  
   const messages = activeChat ? activeChat.messages : [];
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState("");
@@ -64,7 +65,7 @@ export default function ChatWindowPro(props) {
             <option value="speakleash/bielik-11b-v2.3-instruct">bielik-11b-v2.3-instruct</option>            
             <option value="thudm/chatglm3-6b">chatglm3-6b</option>
             <option value="meta/llama-3.1-405b-instruct">llama-3.1-405b-instruct</option>
-            <option value="nvidia/llama3-chatqa-1.5-8b">llama3-chatqa-1.5-8b</option>            
+            <option value="nvidia/llama3-chatqa-1.5-8b">llama3-chatqa-1.5-8b(Free)</option>            
             <option value="mediatek/breeze-7b-instruct">breeze-7b-instruct(Chinese)</option>
           </select>
         </div>

@@ -34,7 +34,7 @@ export default function useChat(userId) {
 
   const [input, setInput] = useState("");
   const [persona, setPersona] = useState("Tutor");
-  const [model, setModel] = useState("Chat");
+  const [model, setModel] = useState("nvidia/llama3-chatqa-1.5-70b");
 
   // Ensure there's always an activeId
   useEffect(() => {
