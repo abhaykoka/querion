@@ -60,11 +60,11 @@ export default function ChatWindowPro(props) {
         </div>
         <div className="model-select">
           <select value={model} onChange={e => setModel(e.target.value)}>
-            <option value="nvidia/llama3-chatqa-1.5-70b">llama3-chatqa-1.5-70b (default)</option>
+            
             <option value="speakleash/bielik-11b-v2.6-instruct">bielik-11b-v2.6-instruct</option>
             <option value="speakleash/bielik-11b-v2.3-instruct">bielik-11b-v2.3-instruct</option>            
             <option value="thudm/chatglm3-6b">chatglm3-6b</option>
-            <option value="meta/llama-3.1-405b-instruct">llama-3.1-405b-instruct</option>
+            <option value="meta/llama-3.1-405b-instruct">llama-3.1-405b-instruct(Default)</option>
             <option value="nvidia/llama3-chatqa-1.5-8b">llama3-chatqa-1.5-8b(Free)</option>            
             <option value="mediatek/breeze-7b-instruct">breeze-7b-instruct(Chinese)</option>
           </select>

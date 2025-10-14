@@ -6,6 +6,8 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+import inspect
 from chroma_connection import get_chroma_collection
 from chromadb.api.models.Collection import Collection
 import base64
@@ -146,7 +148,7 @@ async def query_documents(query: Query, chroma_collection: Collection = Depends(
         model_name = query.model
     else:
         if query.version == "Pro":
-            model_name = "nvidia/llama3-chatqa-1.5-70b"
+            model_name = "meta/llama-3.1-405b-instruct"
             # model_name = select_pro_model(query.query)
         else:
             model_name = "nvidia/llama3-chatqa-1.5-8b"
@@ -180,6 +182,103 @@ Context includes files with filenames the user has uploaded. usually .pdf, .docx
 
     #return {"response": response.content, "context": context}
     return {"response": response.content}
+
+
+@app.post("/query/stream/")
+async def query_documents_stream(query: Query, chroma_collection: Collection = Depends(get_chroma_collection)):
+    """
+    Stream model output to the client via Server-Sent Events (SSE).
+
+    This function attempts a best-effort true stream: if the underlying LLM client's
+    `invoke` method supports a `stream=True` flag and returns an iterable of partial
+    responses, we iterate and forward them. Otherwise we fall back to calling the
+    synchronous `invoke` and chunking the final response into pieces and streaming
+    them to the client.
+    """
+    results = chroma_collection.query(
+        query_texts=[query.query],
+        n_results=5,
+        where={"user_id": str(query.user_id)}
+    )
+
+    context = ""
+    for result in results.get('metadatas', [[]])[0]:
+        # include filename metadata to help the LLM
+        if isinstance(result, dict) and 'filename' in result:
+            context += result['filename'] + "\n"
+
+    for result in results.get('documents', [[]])[0]:
+        context += result + "\n"
+
+    if query.model:
+        model_name = query.model
+    else:
+        if query.version == "Pro":
+            model_name = "meta/llama-3.1-405b-instruct"
+        else:
+            model_name = "nvidia/llama3-chatqa-1.5-8b"
+
+    prompt = f""" You are a helpful assistant. Use the following context to answer the user's question.\nIf the answer is not in the context, say you don't know.\nContext: {context}\n\nQuestion: {query.query} """
+
+    try:
+        llm = ChatNVIDIA(model=model_name)
+    except Exception as e:
+        hint = (
+            "Failed to initialize the NVIDIA chat client. Check NVIDIA env vars and model availability."
+        )
+        raise HTTPException(status_code=500, detail=f"NVIDIA client init error: {e}. {hint}")
+
+    from typing import Generator
+
+    def sse_encode(text: str) -> Generator[str, None, None]:
+        # SSE requires lines starting with 'data:'. Ensure no bare newlines.
+        for line in text.splitlines() or [text]:
+            yield f"data: {line}\n\n"
+
+    async def event_generator():
+        # Try to use the model's streaming API if available
+        try:
+            sig = None
+            try:
+                sig = inspect.signature(llm.invoke)
+            except Exception:
+                sig = None
+
+            # If llm.invoke accepts a 'stream' parameter, attempt real streaming
+            if sig and 'stream' in sig.parameters:
+                try:
+                    stream_resp = llm.invoke(prompt, stream=True)
+                    # If the response is iterable, yield its parts
+                    if hasattr(stream_resp, '__iter__'):
+                        for chunk in stream_resp:
+                            try:
+                                text = getattr(chunk, 'content', None) or str(chunk)
+                            except Exception:
+                                text = str(chunk)
+                            for out in sse_encode(text):
+                                yield out
+                        return
+                except Exception:
+                    # If streaming failed, fall back to synchronous call below
+                    pass
+
+            # Fallback: call synchronously and chunk the final response
+            resp = llm.invoke(prompt)
+            resp_text = getattr(resp, 'content', None) or str(resp)
+
+            # Chunk size in characters
+            chunk_size = 200
+            for i in range(0, len(resp_text), chunk_size):
+                chunk = resp_text[i:i+chunk_size]
+                for out in sse_encode(chunk):
+                    yield out
+
+        except Exception as e:
+            # Send error via SSE and finish
+            err_msg = f"error: {e}"
+            yield f"event: error\ndata: {err_msg}\n\n"
+
+    return StreamingResponse(event_generator(), media_type='text/event-stream')
 
 
 @app.post("/logout/")
