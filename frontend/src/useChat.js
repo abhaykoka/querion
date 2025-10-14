@@ -35,6 +35,14 @@ export default function useChat(userId) {
   const [input, setInput] = useState("");
   const [persona, setPersona] = useState("Tutor");
   const [model, setModel] = useState("meta/llama-3.1-405b-instruct");
+  const [agentMode, setAgentMode] = useState(() => {
+    try {
+      const v = localStorage.getItem(`${storageKey}_agentMode`);
+      return v ? JSON.parse(v) : false;
+    } catch (e) {
+      return false;
+    }
+  });
 
   // Ensure there's always an activeId
   useEffect(() => {
@@ -63,6 +71,7 @@ export default function useChat(userId) {
       if (!chats) return;
       localStorage.setItem(storageKey, JSON.stringify(chats));
       if (activeId) localStorage.setItem(activeKey, activeId);
+      localStorage.setItem(`${storageKey}_agentMode`, JSON.stringify(agentMode));
     } catch (e) {
       // ignore storage errors
     }
@@ -137,6 +146,8 @@ export default function useChat(userId) {
     setPersona,
     model,
     setModel,
+    agentMode,
+    setAgentMode,
     sendMessage,
     newChat,
     selectChat,

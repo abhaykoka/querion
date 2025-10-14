@@ -3,7 +3,7 @@ import "./App.css";      // global styles
 import "./AppPro.css";   // Pro-specific overrides
 
 export default function ChatWindowPro(props) {
-  const { activeChat, input, setInput, persona, setPersona, model, setModel, sendMessage, userId } = props;
+  const { activeChat, input, setInput, persona, setPersona, model, setModel, sendMessage, userId, agentMode, setAgentMode } = props;
   
   const messages = activeChat ? activeChat.messages : [];
   const [file, setFile] = useState(null);
@@ -45,7 +45,7 @@ export default function ChatWindowPro(props) {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ query: input, user_id: userId, version: "Pro", model }),
+      body: JSON.stringify({ query: input, user_id: userId, version: "Pro", model, agent_mode: !!agentMode }),
     });
     const data = await response.json();
     sendMessage(data.response, "bot");

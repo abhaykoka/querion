@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 import inspect
 from chroma_connection import get_chroma_collection
+from ai_agent import choose_model
 from chromadb.api.models.Collection import Collection
 import base64
 import uuid
@@ -48,6 +49,7 @@ class Query(BaseModel):
     user_id: int
     version: str
     model: Optional[str] = None
+    agent_mode: Optional[bool] = False
 
 Base.metadata.create_all(bind=engine)
 
@@ -143,8 +145,10 @@ async def query_documents(query: Query, chroma_collection: Collection = Depends(
         context += result + "\n"
 
 
-    # If the frontend provided a model selection, prefer it. Otherwise pick defaults by version.
-    if query.model:
+    # If agent_mode is enabled, let the agent pick the model automatically
+    if query.agent_mode:
+        model_name = choose_model(query.query)
+    elif query.model:
         model_name = query.model
     else:
         if query.version == "Pro":
@@ -210,7 +214,9 @@ async def query_documents_stream(query: Query, chroma_collection: Collection = D
     for result in results.get('documents', [[]])[0]:
         context += result + "\n"
 
-    if query.model:
+    if query.agent_mode:
+        model_name = choose_model(query.query)
+    elif query.model:
         model_name = query.model
     else:
         if query.version == "Pro":
@@ -218,7 +224,30 @@ async def query_documents_stream(query: Query, chroma_collection: Collection = D
         else:
             model_name = "nvidia/llama3-chatqa-1.5-8b"
 
-    prompt = f""" You are a helpful assistant. Use the following context to answer the user's question.\nIf the answer is not in the context, say you don't know.\nContext: {context}\n\nQuestion: {query.query} """
+    #prompt = f""" You are a helpful assistant. Use the following context to answer the user's question.\nIf the answer is not in the context, say you don't know.\nContext: {context}\n\nQuestion: {query.query} """
+    try:
+    # user query text
+        user_query = query.query
+
+    # replace 'context' with 'provided information' just for the LLM
+        safe_query = user_query.replace("context", "provided information")
+
+        prompt = f"""
+        You are a helpful assistant. Use the following provided information to answer the user's question.
+        If the answer is not in the provided information, say you don't know.
+
+        Provided Information: {context}
+
+        Question: {safe_query}
+        """
+
+        # send the prompt to the model
+        response = model.invoke(prompt)
+
+    except Exception as e:
+        # handle errors gracefully
+        print("Error while processing model prompt:", e)
+        response = "Sorry, I encountered an error while processing your request."
 
     try:
         llm = ChatNVIDIA(model=model_name)
