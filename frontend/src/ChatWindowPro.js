@@ -24,7 +24,7 @@ export default function ChatWindowPro(props) {
     const formData = new FormData();
     formData.append("file", file);
 
-    const response = await fetch(`http://localhost:8000/uploadfile/?user_id=${userId}`, {
+    const response = await fetch(`http://localhost:8000/uploadfile/?user_id=${userId}&chat_id=${activeChat.id}`, {
       method: "POST",
       body: formData,
     });
@@ -45,9 +45,14 @@ export default function ChatWindowPro(props) {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ query: input, user_id: userId, version: "Pro", model, agent_mode: !!agentMode }),
+      body: JSON.stringify({ query: input, user_id: userId, chat_id: activeChat.id, version: "Pro", model, agent_mode: !!agentMode }),
     });
     const data = await response.json();
+    // If the backend reports which model was actually used (agent chose it),
+    // update the UI selection bar so the user sees which model answered.
+    if (data.model_used && data.model_used !== model) {
+      setModel(data.model_used);
+    }
     sendMessage(data.response, "bot");
 
   };
@@ -61,8 +66,8 @@ export default function ChatWindowPro(props) {
         <div className="model-select">
           <select value={model} onChange={e => setModel(e.target.value)}>
             
-            <option value="speakleash/bielik-11b-v2.6-instruct">bielik-11b-v2.6-instruct</option>
-            <option value="speakleash/bielik-11b-v2.3-instruct">bielik-11b-v2.3-instruct</option>            
+            <option value="speakleash/bielik-11b-v2.6-instruct">bielik-11b-v2.6-instruct(Polish)</option>
+            <option value="speakleash/bielik-11b-v2.3-instruct">bielik-11b-v2.3-instruct(Polish)</option>            
             <option value="thudm/chatglm3-6b">chatglm3-6b</option>
             <option value="meta/llama-3.1-405b-instruct">llama-3.1-405b-instruct(Default)</option>
             <option value="nvidia/llama3-chatqa-1.5-8b">llama3-chatqa-1.5-8b(Free)</option>            

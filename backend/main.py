@@ -10,6 +10,7 @@ from fastapi.responses import StreamingResponse
 import inspect
 from chroma_connection import get_chroma_collection
 from ai_agent import choose_model
+from ai_agent import choose_model_with_agent
 from chromadb.api.models.Collection import Collection
 import base64
 import uuid
@@ -20,7 +21,7 @@ from langchain_nvidia_ai_endpoints import ChatNVIDIA
 import os
 import re 
 # from model_router import DEFAULT_MODEL_ID, select_pro_model 
-
+from ai_agent import agent_respond
 
 DATABASE_URL = "postgresql://postgres:User123$@localhost/chatapp"
 
@@ -48,6 +49,7 @@ class UserLogin(BaseModel):
 class Query(BaseModel):
     query: str
     user_id: int
+    chat_id: str  # Add chat_id to the Query model
     version: str
     model: Optional[str] = None
     agent_mode: Optional[bool] = False
@@ -98,7 +100,7 @@ def login_for_access_token(user: UserLogin, db: Session = Depends(get_db)):
     return {"message": "Login successful", "user_id": db_user.id}
 
 @app.post("/uploadfile/")
-async def create_upload_file(file: UploadFile, user_id: int, chroma_collection: Collection = Depends(get_chroma_collection)):
+async def create_upload_file(file: UploadFile, user_id: int, chat_id: str, chroma_collection: Collection = Depends(get_chroma_collection)):
     contents = await file.read()
     document = ""
     if file.content_type == "application/pdf":
@@ -123,7 +125,7 @@ async def create_upload_file(file: UploadFile, user_id: int, chroma_collection: 
         chunk_text = encoding.decode(chunk)
         chroma_collection.add(
             documents=[chunk_text],
-            metadatas=[{"user_id": str(user_id), "filename": file.filename, "chunk_number": i, "content_type": file.content_type}],
+            metadatas=[{"user_id": str(user_id), "chat_id": chat_id, "filename": file.filename, "chunk_number": i, "content_type": file.content_type}],
             ids=[f"{file.filename}-{i}-{uuid.uuid4()}"]
         )
 
@@ -134,7 +136,7 @@ async def query_documents(query: Query, chroma_collection: Collection = Depends(
     results = chroma_collection.query(
         query_texts=[query.query],
         n_results=5,
-        where={"user_id": str(query.user_id)}
+        where={"$and": [{"user_id": str(query.user_id)}, {"chat_id": query.chat_id}]}
     )
     print(results)
     
@@ -148,7 +150,7 @@ async def query_documents(query: Query, chroma_collection: Collection = Depends(
 
     # If agent_mode is enabled, let the agent pick the model automatically
     if query.agent_mode:
-        model_name = choose_model(query.query)
+        model_name = choose_model_with_agent(query.query)
     elif query.model:
         model_name = query.model
     else:
@@ -179,23 +181,28 @@ async def query_documents(query: Query, chroma_collection: Collection = Depends(
         )
         raise HTTPException(status_code=500, detail=f"NVIDIA client init error: {e}. {hint}")
 
-    # Simple and safe
+    # Simple and safe: sanitize the query and build a prompt, then call the LLM.
     user_query = query.query
     if "context" in user_query.lower():
         user_query = re.sub(r"context", "provided information", user_query, flags=re.IGNORECASE)
 
-    response = llm.invoke(f"""You are a helpful assistant. Use the following provided information to answer the user's question.
-    If the answer is not in the provided information, say you don't know. 
+    prompt = f"""
+    You are a helpful assistant. Use the following provided information to answer the user's question.
+    If the answer is not in the provided information, say you don't know.
     This includes files the user uploaded (e.g., .pdf, .docx). You may also answer about those files.
 
     Provided information: {context}
 
     Question: {user_query}
-    """)
+    """
 
+    response = llm.invoke(prompt)
 
-    #return {"response": response.content, "context": context}
-    return {"response": response.content}
+    # Normalize response content safely and include which model was used so the
+    # frontend can reflect the agent's choice in the UI.
+    resp_content = getattr(response, "content", None) if response is not None else None
+    resp_text = resp_content if resp_content is not None else str(response)
+    return {"response": resp_text, "context": context, "model_used": model_name}
 
 
 @app.post("/query/stream/")
@@ -212,7 +219,7 @@ async def query_documents_stream(query: Query, chroma_collection: Collection = D
     results = chroma_collection.query(
         query_texts=[query.query],
         n_results=5,
-        where={"user_id": str(query.user_id)}
+        where={"$and": [{"user_id": str(query.user_id)}, {"chat_id": query.chat_id}]}
     )
 
     context = ""
@@ -235,29 +242,19 @@ async def query_documents_stream(query: Query, chroma_collection: Collection = D
             model_name = "nvidia/llama3-chatqa-1.5-8b"
 
     #prompt = f""" You are a helpful assistant. Use the following context to answer the user's question.\nIf the answer is not in the context, say you don't know.\nContext: {context}\n\nQuestion: {query.query} """
-    try:
-    # user query text
-        user_query = query.query
+    # Build a safe prompt for the streaming path. Do not call any undefined
+    # `model.invoke` here — the actual calls below use the `llm` instance.
+    user_query = query.query
+    safe_query = re.sub(r"context", "provided information", user_query, flags=re.IGNORECASE)
 
-    # replace 'context' with 'provided information' just for the LLM
-        safe_query = user_query.replace("context", "provided information")
+    prompt = f"""
+    You are a helpful assistant. Use the following provided information to answer the user's question.
+    If the answer is not in the provided information, say you don't know.
 
-        prompt = f"""
-        You are a helpful assistant. Use the following provided information to answer the user's question.
-        If the answer is not in the provided information, say you don't know.
+    Provided Information: {context}
 
-        Provided Information: {context}
-
-        Question: {safe_query}
-        """
-
-        # send the prompt to the model
-        response = model.invoke(prompt)
-
-    except Exception as e:
-        # handle errors gracefully
-        print("Error while processing model prompt:", e)
-        response = "Sorry, I encountered an error while processing your request."
+    Question: {safe_query}
+    """
 
     try:
         llm = ChatNVIDIA(model=model_name)
@@ -275,6 +272,13 @@ async def query_documents_stream(query: Query, chroma_collection: Collection = D
             yield f"data: {line}\n\n"
 
     async def event_generator():
+        # Send the model the backend selected as an initial SSE event so the
+        # frontend can update its selection bar to match the agent's choice.
+        try:
+            yield f"event: model\ndata: {model_name}\n\n"
+        except Exception:
+            pass
+
         # Try to use the model's streaming API if available
         try:
             sig = None
@@ -319,6 +323,20 @@ async def query_documents_stream(query: Query, chroma_collection: Collection = D
 
     return StreamingResponse(event_generator(), media_type='text/event-stream')
 
+
+@app.post("/delete_chat/")
+def delete_chat(user_id: int, chat_id: str, chroma_collection: Collection = Depends(get_chroma_collection)):
+    """
+    Deletes all document chunks associated with a specific chat_id for a given user_id.
+    """
+    try:
+        chroma_collection.delete(where={"$and": [{"user_id": str(user_id)}, {"chat_id": chat_id}]})
+        return {"message": f"Chat {chat_id} and associated files deleted successfully."}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete chat and associated files: {e}"
+        )
 
 @app.post("/logout/")
 def logout(user_id: int | None = None, purge: bool = False, chroma_collection: Collection = Depends(get_chroma_collection)):

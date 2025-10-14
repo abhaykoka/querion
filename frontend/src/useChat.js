@@ -121,7 +121,22 @@ export default function useChat(userId) {
     setActiveId(id);
   };
 
-  const deleteChat = (id) => {
+  const deleteChat = async (id) => {
+    try {
+      const response = await fetch(`http://localhost:8000/delete_chat/?user_id=${userId}&chat_id=${id}`, {
+        method: "POST",
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data.detail);
+        return;
+      }
+    } catch (error) {
+      console.error("Failed to delete chat on the server:", error);
+      // Optionally, you can choose to not proceed with deleting the chat from the local state
+      // if the server-side deletion fails.
+    }
+
     setChats(prev => {
       const next = prev.filter(c => c.id !== id);
       return next.length ? next : [createEmptyChat('Welcome')];

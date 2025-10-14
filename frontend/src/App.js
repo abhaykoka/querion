@@ -77,7 +77,7 @@ export default function App() {
     } catch (e) {
       // ignore
     }
-  }, [version]);
+  }, [version, agentMode]);
 
   // switch favicon depending on Free/Pro
   useEffect(() => {
@@ -105,24 +105,26 @@ export default function App() {
       ) : (
         <>
           <div className="version-select-wrapper">
-            <div style={{ display: 'flex', alignItems: 'center', marginRight: 12 }}>
-              <button
-                aria-label="Toggle agent mode"
-                title={agentMode ? 'Agent mode: ON' : 'Agent mode: OFF'}
-                onClick={() => setAgentMode(!agentMode)}
-                style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginRight: 8 }}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="12" cy="12" r="9" stroke="#666" strokeWidth="1" fill={agentMode ? '#4caf50' : '#fff'} />
-                  {agentMode ? (
-                    <path d="M8 12l2 2 6-6" stroke="#fff" strokeWidth="1.6" fill="none" />
-                  ) : (
-                    <path d="M7 7l10 10M17 7L7 17" stroke="#666" strokeWidth="1.2" fill="none" />
-                  )}
-                </svg>
-              </button>
-              <div style={{ fontSize: 13, color: '#333', marginRight: 8 }}>{agentMode ? 'Agent: ON' : 'Agent: OFF'}</div>
-            </div>
+            {version === 'Pro' && (
+              <div style={{ display: 'flex', alignItems: 'center', marginRight: 12 }}>
+                <button
+                  aria-label="Toggle agent mode"
+                  title={agentMode ? 'Agent mode: ON' : 'Agent mode: OFF'}
+                  onClick={() => setAgentMode(!agentMode)}
+                  style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginRight: 8 }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="12" r="9" stroke="#666" strokeWidth="1" fill={agentMode ? '#4caf50' : '#fff'} />
+                    {agentMode ? (
+                      <path d="M8 12l2 2 6-6" stroke="#fff" strokeWidth="1.6" fill="none" />
+                    ) : (
+                      <path d="M7 7l10 10M17 7L7 17" stroke="#666" strokeWidth="1.2" fill="none" />
+                    )}
+                  </svg>
+                </button>
+                <div style={{ fontSize: 13, color: '#333', marginRight: 8 }}>{agentMode ? 'Agent: ON' : 'Agent: OFF'}</div>
+              </div>
+            )}
             <label>Select Version: </label>
             <select
               value={version}
@@ -138,7 +140,7 @@ export default function App() {
             {/* Promo for Free users */}
             {version === 'Free' && (
               <div className="pro-promo" role="note" aria-live="polite">
-                Take our Pro Subscription for smarter responses and exciting new Features
+                Take our Pro Subscription for smarter responses and exciting new Features for just 20$ per year.
               </div>
             )}
             <aside className="sidebar">
