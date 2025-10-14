@@ -18,6 +18,7 @@ import io
 import tiktoken
 from langchain_nvidia_ai_endpoints import ChatNVIDIA
 import os
+import re 
 # from model_router import DEFAULT_MODEL_ID, select_pro_model 
 
 
@@ -178,11 +179,20 @@ async def query_documents(query: Query, chroma_collection: Collection = Depends(
         )
         raise HTTPException(status_code=500, detail=f"NVIDIA client init error: {e}. {hint}")
 
-    response = llm.invoke(f""" You are a helpful assistant. Use the following context to answer the user's question.
-If the answer is not in the context, say you don't know. 
-Context includes files with filenames the user has uploaded. usually .pdf, .docx etc. Answer about the files themseves too.
-                          Context: {context}\n\nQuestion: {query.query} 
-""")
+    # Simple and safe
+    user_query = query.query
+    if "context" in user_query.lower():
+        user_query = re.sub(r"context", "provided information", user_query, flags=re.IGNORECASE)
+
+    response = llm.invoke(f"""You are a helpful assistant. Use the following provided information to answer the user's question.
+    If the answer is not in the provided information, say you don't know. 
+    This includes files the user uploaded (e.g., .pdf, .docx). You may also answer about those files.
+
+    Provided information: {context}
+
+    Question: {user_query}
+    """)
+
 
     #return {"response": response.content, "context": context}
     return {"response": response.content}
