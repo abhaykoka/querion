@@ -6,7 +6,11 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+import inspect
 from chroma_connection import get_chroma_collection
+from ai_agent import choose_model
+from ai_agent import choose_model_with_agent
 from chromadb.api.models.Collection import Collection
 import base64
 import uuid
@@ -15,8 +19,9 @@ import io
 import tiktoken
 from langchain_nvidia_ai_endpoints import ChatNVIDIA
 import os
+import re 
 # from model_router import DEFAULT_MODEL_ID, select_pro_model 
-
+from ai_agent import agent_respond
 
 DATABASE_URL = "postgresql://postgres:User123$@localhost/chatapp"
 
@@ -44,8 +49,10 @@ class UserLogin(BaseModel):
 class Query(BaseModel):
     query: str
     user_id: int
+    chat_id: str  # Add chat_id to the Query model
     version: str
     model: Optional[str] = None
+    agent_mode: Optional[bool] = False
 
 Base.metadata.create_all(bind=engine)
 
@@ -93,7 +100,7 @@ def login_for_access_token(user: UserLogin, db: Session = Depends(get_db)):
     return {"message": "Login successful", "user_id": db_user.id}
 
 @app.post("/uploadfile/")
-async def create_upload_file(file: UploadFile, user_id: int, chroma_collection: Collection = Depends(get_chroma_collection)):
+async def create_upload_file(file: UploadFile, user_id: int, chat_id: str, chroma_collection: Collection = Depends(get_chroma_collection)):
     contents = await file.read()
     document = ""
     if file.content_type == "application/pdf":
@@ -118,7 +125,7 @@ async def create_upload_file(file: UploadFile, user_id: int, chroma_collection: 
         chunk_text = encoding.decode(chunk)
         chroma_collection.add(
             documents=[chunk_text],
-            metadatas=[{"user_id": str(user_id), "filename": file.filename, "chunk_number": i, "content_type": file.content_type}],
+            metadatas=[{"user_id": str(user_id), "chat_id": chat_id, "filename": file.filename, "chunk_number": i, "content_type": file.content_type}],
             ids=[f"{file.filename}-{i}-{uuid.uuid4()}"]
         )
 
@@ -129,7 +136,7 @@ async def query_documents(query: Query, chroma_collection: Collection = Depends(
     results = chroma_collection.query(
         query_texts=[query.query],
         n_results=5,
-        where={"user_id": str(query.user_id)}
+        where={"$and": [{"user_id": str(query.user_id)}, {"chat_id": query.chat_id}]}
     )
     print(results)
     
@@ -141,12 +148,14 @@ async def query_documents(query: Query, chroma_collection: Collection = Depends(
         context += result + "\n"
 
 
-    # If the frontend provided a model selection, prefer it. Otherwise pick defaults by version.
-    if query.model:
+    # If agent_mode is enabled, let the agent pick the model automatically
+    if query.agent_mode:
+        model_name = choose_model_with_agent(query.query)
+    elif query.model:
         model_name = query.model
     else:
         if query.version == "Pro":
-            model_name = "nvidia/llama3-chatqa-1.5-70b"
+            model_name = "meta/llama-3.1-405b-instruct"
             # model_name = select_pro_model(query.query)
         else:
             model_name = "nvidia/llama3-chatqa-1.5-8b"
@@ -172,15 +181,162 @@ async def query_documents(query: Query, chroma_collection: Collection = Depends(
         )
         raise HTTPException(status_code=500, detail=f"NVIDIA client init error: {e}. {hint}")
 
-    response = llm.invoke(f""" You are a helpful assistant. Use the following context to answer the user's question.
-If the answer is not in the context, say you don't know. 
-Context includes files with filenames the user has uploaded. usually .pdf, .docx etc. Answer about the files themseves too.
-                          Context: {context}\n\nQuestion: {query.query} 
-""")
+    # Simple and safe: sanitize the query and build a prompt, then call the LLM.
+    user_query = query.query
+    if "context" in user_query.lower():
+        user_query = re.sub(r"context", "provided information", user_query, flags=re.IGNORECASE)
 
-    #return {"response": response.content, "context": context}
-    return {"response": response.content}
+    prompt = f"""
+    You are a helpful assistant. Use the following provided information to answer the user's question.
+    If the answer is not in the provided information, say you don't know.
+    This includes files the user uploaded (e.g., .pdf, .docx). You may also answer about those files.
 
+    Provided information: {context}
+
+    Question: {user_query}
+    """
+
+    response = llm.invoke(prompt)
+
+    # Normalize response content safely and include which model was used so the
+    # frontend can reflect the agent's choice in the UI.
+    resp_content = getattr(response, "content", None) if response is not None else None
+    resp_text = resp_content if resp_content is not None else str(response)
+    return {"response": resp_text, "context": context, "model_used": model_name}
+
+
+@app.post("/query/stream/")
+async def query_documents_stream(query: Query, chroma_collection: Collection = Depends(get_chroma_collection)):
+    """
+    Stream model output to the client via Server-Sent Events (SSE).
+
+    This function attempts a best-effort true stream: if the underlying LLM client's
+    `invoke` method supports a `stream=True` flag and returns an iterable of partial
+    responses, we iterate and forward them. Otherwise we fall back to calling the
+    synchronous `invoke` and chunking the final response into pieces and streaming
+    them to the client.
+    """
+    results = chroma_collection.query(
+        query_texts=[query.query],
+        n_results=5,
+        where={"$and": [{"user_id": str(query.user_id)}, {"chat_id": query.chat_id}]}
+    )
+
+    context = ""
+    for result in results.get('metadatas', [[]])[0]:
+        # include filename metadata to help the LLM
+        if isinstance(result, dict) and 'filename' in result:
+            context += result['filename'] + "\n"
+
+    for result in results.get('documents', [[]])[0]:
+        context += result + "\n"
+
+    if query.agent_mode:
+        model_name = choose_model(query.query)
+    elif query.model:
+        model_name = query.model
+    else:
+        if query.version == "Pro":
+            model_name = "meta/llama-3.1-405b-instruct"
+        else:
+            model_name = "nvidia/llama3-chatqa-1.5-8b"
+
+    #prompt = f""" You are a helpful assistant. Use the following context to answer the user's question.\nIf the answer is not in the context, say you don't know.\nContext: {context}\n\nQuestion: {query.query} """
+    # Build a safe prompt for the streaming path. Do not call any undefined
+    # `model.invoke` here — the actual calls below use the `llm` instance.
+    user_query = query.query
+    safe_query = re.sub(r"context", "provided information", user_query, flags=re.IGNORECASE)
+
+    prompt = f"""
+    You are a helpful assistant. Use the following provided information to answer the user's question.
+    If the answer is not in the provided information, say you don't know.
+
+    Provided Information: {context}
+
+    Question: {safe_query}
+    """
+
+    try:
+        llm = ChatNVIDIA(model=model_name)
+    except Exception as e:
+        hint = (
+            "Failed to initialize the NVIDIA chat client. Check NVIDIA env vars and model availability."
+        )
+        raise HTTPException(status_code=500, detail=f"NVIDIA client init error: {e}. {hint}")
+
+    from typing import Generator
+
+    def sse_encode(text: str) -> Generator[str, None, None]:
+        # SSE requires lines starting with 'data:'. Ensure no bare newlines.
+        for line in text.splitlines() or [text]:
+            yield f"data: {line}\n\n"
+
+    async def event_generator():
+        # Send the model the backend selected as an initial SSE event so the
+        # frontend can update its selection bar to match the agent's choice.
+        try:
+            yield f"event: model\ndata: {model_name}\n\n"
+        except Exception:
+            pass
+
+        # Try to use the model's streaming API if available
+        try:
+            sig = None
+            try:
+                sig = inspect.signature(llm.invoke)
+            except Exception:
+                sig = None
+
+            # If llm.invoke accepts a 'stream' parameter, attempt real streaming
+            if sig and 'stream' in sig.parameters:
+                try:
+                    stream_resp = llm.invoke(prompt, stream=True)
+                    # If the response is iterable, yield its parts
+                    if hasattr(stream_resp, '__iter__'):
+                        for chunk in stream_resp:
+                            try:
+                                text = getattr(chunk, 'content', None) or str(chunk)
+                            except Exception:
+                                text = str(chunk)
+                            for out in sse_encode(text):
+                                yield out
+                        return
+                except Exception:
+                    # If streaming failed, fall back to synchronous call below
+                    pass
+
+            # Fallback: call synchronously and chunk the final response
+            resp = llm.invoke(prompt)
+            resp_text = getattr(resp, 'content', None) or str(resp)
+
+            # Chunk size in characters
+            chunk_size = 200
+            for i in range(0, len(resp_text), chunk_size):
+                chunk = resp_text[i:i+chunk_size]
+                for out in sse_encode(chunk):
+                    yield out
+
+        except Exception as e:
+            # Send error via SSE and finish
+            err_msg = f"error: {e}"
+            yield f"event: error\ndata: {err_msg}\n\n"
+
+    return StreamingResponse(event_generator(), media_type='text/event-stream')
+
+
+@app.post("/delete_chat/")
+def delete_chat(user_id: int, chat_id: str, chroma_collection: Collection = Depends(get_chroma_collection)):
+    """
+    Deletes all document chunks associated with a specific chat_id for a given user_id.
+    """
+    try:
+        chroma_collection.delete(where={"$and": [{"user_id": str(user_id)}, {"chat_id": chat_id}]})
+        return {"message": f"Chat {chat_id} and associated files deleted successfully."}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete chat and associated files: {e}"
+        )
 
 @app.post("/logout/")
 def logout(user_id: int | None = None, purge: bool = False, chroma_collection: Collection = Depends(get_chroma_collection)):

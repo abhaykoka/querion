@@ -1,7 +1,7 @@
 
 :root {
-  --primary-color: #4a90e2;
-  --secondary-color: #f5a623;
+  --primary-color: #6a11cb;
+  --secondary-color: #2575fc;
   --background-color: #f0f4f8;
   --form-background: #ffffff;
   --text-color: #333333;
@@ -10,31 +10,33 @@
 }
 
 body {
-  background-color: var(--background-color);
+  background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
 }
 
 .login-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   height: 100vh;
+  padding-top: 2vh;
 }
 
 .login-form {
   background-color: var(--form-background);
-  padding: 40px;
+  padding: 40px 70px;
   border-radius: 10px;
-  box-shadow: 0 10px 30px var(--box-shadow-color);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   width: 100%;
   max-width: 400px;
   text-align: center;
+  margin-top: -60px;
 }
 
 .login-logo {
   margin-top: 0.2px;  
-  width: 180px;
-  height: 180px;
+  width: 150px;
+  height: 150px;
   margin-bottom: 0.2px;
 }
 
@@ -44,7 +46,7 @@ body {
 }
 
 .login-form .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 15px;
   text-align: left;
 }
 
@@ -82,7 +84,7 @@ body {
   padding: 12px 18px;
   border: none;
   border-radius: 10px;
-  background: var(--primary-color);
+  background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
   color: #fff;
   font-weight: 700;
   cursor: pointer;
@@ -101,4 +103,9 @@ body {
   color: var(--primary-color);
   cursor: pointer;
   text-decoration: underline;
+}
+
+.login-form h1 {
+  margin-bottom: 10px;
+  color: var(--primary-color);
 }

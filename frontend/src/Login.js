@@ -50,6 +50,7 @@ const Login = ({ onLogin }) => {
         <div className="login-container">
             <div className="login-form">
                 <img src="/querion free.ico" alt="Querion" className="login-logo" />
+                <h1>Querion</h1>
                 <h2>{isLogin ? 'Login' : 'Register'}</h2>
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">

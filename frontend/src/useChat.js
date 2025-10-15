@@ -34,7 +34,15 @@ export default function useChat(userId) {
 
   const [input, setInput] = useState("");
   const [persona, setPersona] = useState("Tutor");
-  const [model, setModel] = useState("nvidia/llama3-chatqa-1.5-70b");
+  const [model, setModel] = useState("meta/llama-3.1-405b-instruct");
+  const [agentMode, setAgentMode] = useState(() => {
+    try {
+      const v = localStorage.getItem(`${storageKey}_agentMode`);
+      return v ? JSON.parse(v) : false;
+    } catch (e) {
+      return false;
+    }
+  });
 
   // Ensure there's always an activeId
   useEffect(() => {
@@ -63,6 +71,7 @@ export default function useChat(userId) {
       if (!chats) return;
       localStorage.setItem(storageKey, JSON.stringify(chats));
       if (activeId) localStorage.setItem(activeKey, activeId);
+      localStorage.setItem(`${storageKey}_agentMode`, JSON.stringify(agentMode));
     } catch (e) {
       // ignore storage errors
     }
@@ -112,7 +121,22 @@ export default function useChat(userId) {
     setActiveId(id);
   };
 
-  const deleteChat = (id) => {
+  const deleteChat = async (id) => {
+    try {
+      const response = await fetch(`http://localhost:8000/delete_chat/?user_id=${userId}&chat_id=${id}`, {
+        method: "POST",
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data.detail);
+        return;
+      }
+    } catch (error) {
+      console.error("Failed to delete chat on the server:", error);
+      // Optionally, you can choose to not proceed with deleting the chat from the local state
+      // if the server-side deletion fails.
+    }
+
     setChats(prev => {
       const next = prev.filter(c => c.id !== id);
       return next.length ? next : [createEmptyChat('Welcome')];
@@ -137,6 +161,8 @@ export default function useChat(userId) {
     setPersona,
     model,
     setModel,
+    agentMode,
+    setAgentMode,
     sendMessage,
     newChat,
     selectChat,

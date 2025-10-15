@@ -4,7 +4,7 @@
 
 .chat-bubble.user.chat-free{background:var(--accent-1);color:#fff;box-shadow:none}
 
-.chat-bubble.bot.chat-free{background:#f8fafc;color:#0f172a;border:1px solid var(--ui-border)}
+.chat-bubble.bot.chat-free{background:#f8fafc;color:#3d1567;border:1px solid var(--ui-border)}
 
 .logo.chat-free{color:#4a0a0adc}
 
