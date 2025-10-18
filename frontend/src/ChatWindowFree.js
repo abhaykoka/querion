@@ -14,7 +14,7 @@ export default function ChatWindowFree(props) {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ query: input, user_id: userId, version: "Free" }),
+      body: JSON.stringify({ query:input, user_id: userId, chat_id: activeChat.id, version: "Free" }),
     });
     const data = await response.json();
     sendMessage(data.response, "bot");
